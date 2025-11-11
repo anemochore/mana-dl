@@ -9,9 +9,8 @@ async function loadScript(url) {
     document.getElementsByTagName('head')[0].appendChild(se);
   }
   else if (url.endsWith('.css')) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = txt;
-    document.head.appendChild(link);
-  }
+    const styleEl = document.createElement('style');
+    styleEl.textContent = txt;
+    document.head.appendChild(styleEl);
+  } 
 }
