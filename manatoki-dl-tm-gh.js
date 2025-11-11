@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         manatoki downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
+// @version      0.2.2
 // @description  try to take over the world!
 // @author       anemochore
 // @include      https://*toki*/*
@@ -22,6 +22,7 @@
 //v0.1.5: fix minor css, change episode title, add spinner
 //v0.2.0: add support for migrating to github
 //v0.2.1: migrate to github
+//v0.2.2: fix entry condition check bug
 
 /* 사용법:
 마나토끼에서 이미지를 받는 스크립트야.
@@ -44,23 +45,18 @@ CORS 문제가 깔끔하게는 해결이 안 돼서, 어떤 경우에는 이미�
 
 
 //check entry condition
-(async () => {
-  if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
-    console.log('direct d/l started.');
-    await getImage();
+let continueRun = true, console2 = window.console2;
+if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
+  console.log('direct d/l started.');
+  await getImage();
+}
+else if (location.href.includes('toki') && !location.href.match(/\.jpg[?]{0,}.*$/)) {
+  //loadScript() is needed for jszip working in tampermonkey
+  if (!console2) await loadScript('https://anemochore.github.io/mana-dl/util/common.js');
+  console2 = new FadingAlert();
 
-    return;
-  }
-  else if (!location.href.includes('toki')) {
-    return;
-  }
-})();
-
-//entry point (loadScript() is needed for jszip working in tampermonkey)
-if (!window.console2) await loadScript('https://anemochore.github.io/mana-dl/util/common.js');
-const console2 = new FadingAlert();
-
-init();
+  init();
+}
 
 
 function init() {
