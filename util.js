@@ -1,4 +1,4 @@
-function zipAndDownload(zip, fileName) {
+function zipAndDownload(zip, fileName, fadingAlert = console) {
   zip.generateAsync({type: "blob", compression: "STORE"}, metadata => {
     let msg = 'zipping: ' + metadata.percent.toFixed(2) + '%';
     if (metadata.currentFile) msg = msg + ' (' + metadata.currentFile + ')';
