@@ -1,13 +1,3 @@
-async function loadScript(url) {
-  const js = await fetchOne(url);
-  if (!js) return;
-
-  const se = document.createElement('script');
-  se.type = 'text/javascript';
-  se.text = js;
-  document.getElementsByTagName('head')[0].appendChild(se);
-}
-
 function zipAndDownload(zip, fileName) {
   zip.generateAsync({type: "blob", compression: "STORE"}, metadata => {
     let msg = 'zipping: ' + metadata.percent.toFixed(2) + '%';
@@ -25,63 +15,65 @@ function zipAndDownload(zip, fileName) {
   .catch(error => console2.log('cannot d/l a zip file due to:', error));
 }
 
-function fadingAlert(backgroundColor = 'pink') {
-  this.div = document.createElement('div');
-  this.div.id = 'alertBoxDiv';
-  document.body.appendChild(this.div);
+class FadingAlert {
+  constructor(backgroundColor = 'pink') {
+    this.div = document.createElement('div');
+    this.div.id = 'alertBoxDiv';
+    document.body.appendChild(this.div);
 
-  const s = this.div.style;
-  s.position = 'fixed';
-  s.top = '40%';            s.left = '45%';
-  s.width = '240px';        s.height = 'auto';
-  s.textAlign = 'center';   s.padding = '2px';
-  s.color = 'Black';        s.backgroundColor = backgroundColor;
-  s.border = 0;             s.overflow = 'auto';
+    const s = this.div.style;
+    s.position = 'fixed';
+    s.top = '40%'; s.left = '45%';
+    s.width = '240px'; s.height = 'auto';
+    s.textAlign = 'center'; s.padding = '2px';
+    s.color = 'Black'; s.backgroundColor = backgroundColor;
+    s.border = 0; s.overflow = 'auto';
 
-  this.log_ = (func = console.log, ...txt) => {
-    if (this.interval) {
-      this.interval = null;
-      clearInterval(this.interval);
+    this.log_ = (func = console.log, ...txt) => {
+      if (this.interval) {
+        this.interval = null;
+        clearInterval(this.interval);
 
-      const spinnerEl = this.div.querySelector('span');
-      if (spinnerEl) spinnerEl.textContent = '';
-    }
+        const spinnerEl = this.div.querySelector('span');
+        if (spinnerEl) spinnerEl.textContent = '';
+      }
 
-    if (txt.length == 0) {
-      this.div.style.opacity = 0;
-      this.div.style.transition = 'opacity 5s ease-in';
-    }
-    else {
-      this.div.style.transition = '';
-      this.div.style.opacity = 1;
-      this.div.textContent = txt.join(' ');
-      func(...txt);
-    }
-  };
-  this.log =  (...txt) => this.log_(console.log, ...txt);
-  this.show = (...txt) => this.log_(() => {},    ...txt);
+      if (txt.length == 0) {
+        this.div.style.opacity = 0;
+        this.div.style.transition = 'opacity 5s ease-in';
+      }
+      else {
+        this.div.style.transition = '';
+        this.div.style.opacity = 1;
+        this.div.textContent = txt.join(' ');
+        func(...txt);
+      }
+    };
+    this.log = (...txt) => this.log_(console.log, ...txt);
+    this.show = (...txt) => this.log_(() => { }, ...txt);
 
-  this.spin = (...txt) => {
-    this.log_(console.log, ...txt);
+    this.spin = (...txt) => {
+      this.log_(console.log, ...txt);
 
-    let spinnerEl = this.div.querySelector('span');
-    if (!spinnerEl) {
-      spinnerEl = document.createElement('span');
-      spinnerEl.style.fontFamily = "'Courier New', monospace";
-      spinnerEl.style.marginLeft = '8px';
-      this.div.appendChild(spinnerEl);
-    }
+      let spinnerEl = this.div.querySelector('span');
+      if (!spinnerEl) {
+        spinnerEl = document.createElement('span');
+        spinnerEl.style.fontFamily = "'Courier New', monospace";
+        spinnerEl.style.marginLeft = '8px';
+        this.div.appendChild(spinnerEl);
+      }
 
-    spinnerEl.textContent = '|';
-    const spinner = ['|', '/', '-', '\\'];
-    let i = 0;
+      spinnerEl.textContent = '|';
+      const spinner = ['|', '/', '-', '\\'];
+      let i = 0;
 
-    this.interval = setInterval(() => {
-      spinnerEl.textContent = spinner[i++ % spinner.length];
-    }, 100);
-  };
+      this.interval = setInterval(() => {
+        spinnerEl.textContent = spinner[i++ % spinner.length];
+      }, 100);
+    };
 
-  this.log();
+    this.log();
+  }
 }
 
 function sleep(ms) {
