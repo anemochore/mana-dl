@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         manatoki downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.3
 // @description  try to take over the world!
 // @author       anemochore
 // @include      https://*toki*/*
@@ -23,6 +23,7 @@
 //v0.2.0: add support for migrating to github
 //v0.2.1: migrate to github
 //v0.2.2: fix entry condition check bug
+//v0.2.3: minor wrap-up
 
 /* 사용법:
 마나토끼에서 이미지를 받는 스크립트야.
@@ -45,7 +46,7 @@ CORS 문제가 깔끔하게는 해결이 안 돼서, 어떤 경우에는 이미�
 
 
 //check entry condition
-let continueRun = true, console2 = window.console2;
+let console2 = window.console2;
 if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
   console.log('direct d/l started.');
   await getImage();
@@ -124,7 +125,7 @@ async function main(e, minDelay = 3000, maxDelay = 3300) {
       eval(htmlDataLines);
 
       if (!html_data) {
-        console2.log('페이지 응답이 이상함. 새로고침하고 다시 실행해봐. 계속 안 되면 제보 바람.');
+        console2.log('페이지 응답이 이상해서 중단함. 새로고침하고 다시 실행해봐. 계속 안 되면 제보 바람.');
         console.warn('응답 등 정보', html, start, end, htmlDataLines);
         throw new Error(`unexpected html data: ${htmlDataLines}`);
       }
@@ -141,7 +142,6 @@ async function main(e, minDelay = 3000, maxDelay = 3300) {
 
       //화 단위로 병렬처리
       const performanceStartTime = performance.now();
-
       let results = await fetchAll(imgUrls, 'blob');  //'some' CORS restriction
       let shouldBreak = results.some(el => !el) || results.length == 0;
       if (shouldBreak) {
@@ -172,7 +172,7 @@ async function main(e, minDelay = 3000, maxDelay = 3300) {
     }
   }
 
-  //zip and d/l
+  //zip and d/l (일부라도 성공했으면 다운로드는 진행)
   if(i >= 0) {
     console2.log(`${i+1}/${epUrls.length} sub-pages are fetched. plz wait for zipping.`);
     const BOOK_TITLE = document.querySelector('.view-content>span>b')?.innerText.replace(/[/\\?%*:|"<>]/g, '_') || '제목 없음';
