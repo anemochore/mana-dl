@@ -164,7 +164,7 @@ class FadingAlert {
         if (spinnerEl) spinnerEl.textContent = '';
       }
 
-      if (txt.length == 0) {
+      if (txt.length == 0 || !txt[0]) {
         this.div.style.opacity = 0;
         this.div.style.transition = 'opacity 5s ease-in';
       }
