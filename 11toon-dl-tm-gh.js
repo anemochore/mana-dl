@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         11toon downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.2.1
+// @version      0.2.2
 // @description  try to take over the world!
 // @author       anemochore
 // @match        http*://*/bbs/board.php?bo_table=toons*
@@ -15,6 +15,7 @@
 //v0.1.9: fix minor css, improve and change episode title, add spinner
 //v0.2.0: add support for migrating to github
 //v0.2.1: migrate to github
+//v0.2.2: fix minor issues
 
 /* 사용법:
 일일툰에서 이미지를 받는 스크립트야.
@@ -121,26 +122,4 @@ async function fetchAll(urls, type) {
   await Promise.all(promises);
 
   return results;
-}
-
-async function fetchOne(url, type = 'text') {
-  return new Promise((resolve, reject) => {
-    if (!url) resolve(null);
-
-    //detail object. see https://wiki.greasespot.net/GM.xmlHttpRequest
-    const payload = {
-      method: 'GET',
-      url: url,
-      responseType: type == 'blob' ? 'blob' : 'text',
-      onload: res => {
-        resolve(res.response);
-      },
-      onerror: err => {
-        reject(err);
-      },
-    };
-
-    console.debug('fetching', url);  //dev+++
-    GM_xmlhttpRequest(payload);
-  });
 }

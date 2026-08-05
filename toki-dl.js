@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         toki downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.1.1
 // @description  try to take over the world!
 // @author       anemochore
 // @include      https://*to*/*
@@ -54,10 +54,13 @@
   }
 })();
 
-//check entry condition
+
+// entry point
 await domReady();
 
 let console2 = window.console2;
+if (!console2) await loadScript('https://anemochore.github.io/mana-dl/util/common.js');  // loadScript() is needed for jszip working in tampermonkey
+
 if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
   const [rootSelector1, rootSelector2] = ['div.theme-viewer-image', '#manamoa_img'];  // 1. 뉴토끼, 2. 마나토끼
   let rootSelector = rootSelector1, elementReadyOption;
@@ -77,12 +80,10 @@ if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
   await getImages(rootSelector + '>img');
 }
 else if (location.href.includes('to') && !location.href.match(/\.jpg[?]{0,}.*$/)) {  // url 하드코딩했음
-  //loadScript() is needed for jszip working in tampermonkey
-  if (!console2) await loadScript('https://anemochore.github.io/mana-dl/util/common.js');
   console2 = new FadingAlert();
-
   init();
 }
+// end of flow
 
 
 function init() {
@@ -321,9 +322,4 @@ function elementReady(selector, baseEl = document, options = {}) {
       subtree: true
     });
   });
-}
-
-// 이미지 페이지에서는 common.js를 로드하지 않아 여기도 또 쓴다...
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
 }
