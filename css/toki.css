@@ -18,6 +18,7 @@ input[type=checkbox] {
 }
 
 /* 배너 표시 끔(첫 줄이 뉴토끼, 두 번째 줄이 마나토끼) */
+/* 첫째 줄에 id가 두 번 들어간 건 오버라이드를 위한 의도임 */
 #main-banner-view#main-banner-view.thema-home-banner-grid,
 .at-main>div[id]:first-of-type, .basic-banner-2 {
   display: none !important;
