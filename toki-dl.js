@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         toki downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  try to take over the world!
 // @author       anemochore
 // @include      https://*to*/*
@@ -60,7 +60,7 @@ await domReady();
 
 let console2 = window.console2;
 if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
-  const [rootSelector1, rootSelector2] = ['div.theme-viewer-image', '#manamoa_img'];  // 1. 뉴토끼, 2. 마나토끼
+  const [rootSelector1, rootSelector2] = ['div.theme-viewer-image', 'div.view-content>div[id^="mana"]'];  // 1. 뉴토끼, 2. 마나토끼(?)
   let rootSelector = rootSelector1, elementReadyOption;
   if (document.querySelector(rootSelector1)) {
     // 뉴토끼
@@ -74,9 +74,9 @@ if (GM_getValue('URLS_TO_DL')?.includes(location.href)) {
 
   //console2 is not used here
   console.log('waiting for images to load...');
-  await elementReady(rootSelector + '>img', document, elementReadyOption);
+  await elementReady(rootSelector + ' img', document, elementReadyOption);
   console.log('all images are loaded. fetching...');
-  await getImages(rootSelector + '>img');
+  await getImages(rootSelector + ' img');
 }
 else if (location.href.includes('to') && !location.href.match(/\.jpg[?]{0,}.*$/)) {  // url 하드코딩했음
   if (!console2) await loadScript('https://anemochore.github.io/mana-dl/util/common.js');  // loadScript() is needed for jszip working in tampermonkey
