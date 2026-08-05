@@ -107,7 +107,7 @@ function initSettingContainer(container, epNumber, main) {
 
       //indeterminate visual
       checkedCount = items.filter(i => i.checked).length;
-      console.debug('checkedCount, items.length', checkedCount, items.length);
+      //console.debug('checkedCount, items.length', checkedCount, items.length);
       if (checkedCount == 0) {
         selectAll.checked = false;
         selectAll.indeterminate = false;
@@ -146,6 +146,30 @@ function zipAndDownload(zip, fileName, console2 = console) {
   })
   .catch(error => console2.log('cannot d/l a zip file due to:', error));
 }
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function elementReady(selector, baseEl = document.documentElement, countsForWait) {
+  return new Promise((resolve, reject) => {
+    const els = [...baseEl.querySelectorAll(selector)];
+    if(els.length > 0 && (!countsForWait || els.length >= countsForWait)) return resolve(els[els.length-1]);
+
+    new MutationObserver(async (m, o) => {
+      const els = [...baseEl.querySelectorAll(selector)];
+      if(els.length > 0) {
+        o.disconnect();
+        resolve(els[els.length-1]);
+      }
+    })
+    .observe(baseEl, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
 
 class FadingAlert {
   constructor(styleObj = {}) {
@@ -283,7 +307,3 @@ class FadingAlert {
 }
 
 //globalThis.FadingAlert = FadingAlert;
-
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
