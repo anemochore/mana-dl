@@ -147,6 +147,28 @@ function zipAndDownload(zip, fileName, console2 = console) {
   .catch(error => console2.log('cannot d/l a zip file due to:', error));
 }
 
+async function fetchOne(url, type = 'text') {
+  return new Promise((resolve, reject) => {
+    if (!url) resolve(null);
+
+    //detail object. see https://wiki.greasespot.net/GM.xmlHttpRequest
+    const payload = {
+      method: 'GET',
+      url: url,
+      responseType: type == 'blob' ? 'blob' : 'text',
+      onload: res => {
+        resolve(res.response);
+      },
+      onerror: err => {
+        reject(err);
+      },
+    };
+
+    console.debug('fetching', url);  //dev+++
+    GM_xmlhttpRequest(payload);
+  });
+}
+
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
