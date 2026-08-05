@@ -20,5 +20,5 @@ input[type=checkbox] {
 /* 배너 표시 끔(첫 줄이 뉴토끼, 두 번째 줄이 마나토끼) */
 #main-banner-view#main-banner-view.thema-home-banner-grid,
 .at-main>div[id]:first-of-type, .basic-banner-2 {
-  display: none;
+  display: none !important;
 }
