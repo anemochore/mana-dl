@@ -12,5 +12,27 @@ async function loadScript(url) {
     const styleEl = document.createElement('style');
     styleEl.textContent = txt;
     document.head.appendChild(styleEl);
-  } 
+  }
+}
+
+async function fetchOne(url, type = 'text') {
+  return new Promise((resolve, reject) => {
+    if (!url) resolve(null);
+
+    //detail object. see https://wiki.greasespot.net/GM.xmlHttpRequest
+    const payload = {
+      method: 'GET',
+      url: url,
+      responseType: type == 'blob' ? 'blob' : 'text',
+      onload: res => {
+        resolve(res.response);
+      },
+      onerror: err => {
+        reject(err);
+      },
+    };
+
+    console.debug('fetching', url);  //dev+++
+    GM_xmlhttpRequest(payload);
+  });
 }
