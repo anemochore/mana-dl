@@ -151,26 +151,6 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-function elementReady(selector, baseEl = document.documentElement, countsForWait) {
-  return new Promise((resolve, reject) => {
-    const els = [...baseEl.querySelectorAll(selector)];
-    if(els.length > 0 && (!countsForWait || els.length >= countsForWait)) return resolve(els[els.length-1]);
-
-    new MutationObserver(async (m, o) => {
-      const els = [...baseEl.querySelectorAll(selector)];
-      if(els.length > 0) {
-        o.disconnect();
-        resolve(els[els.length-1]);
-      }
-    })
-    .observe(baseEl, {
-      childList: true,
-      subtree: true
-    });
-  });
-}
-
-
 class FadingAlert {
   constructor(styleObj = {}) {
     this.div = document.getElementById('alertBoxDiv');
