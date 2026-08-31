@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         11toon downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.3
 // @description  try to take over the world!
 // @author       anemochore
 // @match        http*://*/bbs/board.php?bo_table=toons*
@@ -16,6 +16,7 @@
 //v0.2.0: add support for migrating to github
 //v0.2.1: migrate to github
 //v0.2.2: fix minor issues
+//v0.2.3: validate, throttle, and retry downloads; report failures -> retrying is not really validated yet
 
 /* 사용법:
 일일툰에서 이미지를 받는 스크립트야.
@@ -69,11 +70,20 @@ async function main(maxDelay = 0) {
   const epUrls = buttons.map(el => el.getAttribute('onclick')
   .replace(/location\.href=['"`]/, '').replace(/['"`]$/, '')
   .replace(/^\.\//, location.origin + '/bbs/'));  //상대주소는 절대주소로.
+  const downloadFailures = [];
+  let totalRetryCount = 0;
 
   //load each ep in sequence and get imgs asynchronously and add them to zip
   let i;
   for ([i, epUrl] of epUrls.entries()) {
-    const result = await fetchOne(epUrl);
+    let result;
+    try {
+      result = await fetchOne(epUrl, 'text', {onRetry: () => totalRetryCount++});
+    } catch (err) {
+      downloadFailures.push({episode: epTitles[i], index: 0, url: epUrl, status: err.status || 0, message: err.message || String(err)});
+      console2.log(`${i+1}/${epUrls.length} 페이지를 받지 못했어: ${epTitles[i]}`);
+      continue;
+    }
     if (result) {
       const doc = new DOMParser().parseFromString(result, "text/html");
       const title = doc.querySelector('h1').innerText.trim();
@@ -87,11 +97,13 @@ async function main(maxDelay = 0) {
 
       //화 단위로 받음
       const performanceStartTime = performance.now();
-      const results = await fetchAll(imgUrls, 'blob');
+      const {results, failures, retryCount} = await fetchAll(imgUrls, 'blob');
+      totalRetryCount += retryCount;
+      downloadFailures.push(...failures.map(failure => ({...failure, episode: epTitles[i]})));
       const performanceElapsedTime = performance.now() - performanceStartTime;
       console2.spin(`fetched ${results.filter(el => el).length}/${imgUrls.length} images on ${i+1}/${epUrls.length} sub-pages (${epTitles[i]}). took ${Math.round(performanceElapsedTime)} ms.`);
 
-      //실패한 이미지는 과감하게(귀찮으니) 처리하지 않는다!!!
+      //실패한 이미지는 보고서에 남기고, 성공한 이미지는 계속 압축한다.
       for (let [j, img] of results.entries()) {
         if (img) {
           const ext = imgUrls[j].split('.').pop().split('?')[0] || 'jpg';  //is it safe to use jpg for fallback?
@@ -103,23 +115,53 @@ async function main(maxDelay = 0) {
     }
   }
 
-  //zip and d/l
-  if(i >= 0) {
+  //zip and d/l (일부라도 성공했으면 다운로드는 진행)
+  if(i >= 0 && Object.keys(zip.files).length > 0) {
+    if (downloadFailures.length > 0) {
+      const failureReport = downloadFailures.map(failure => {
+        const target = failure.index ? `${failure.index}.jpg` : '회차 페이지';
+        return `[${failure.episode}] ${target}\n상태: ${failure.status || '네트워크 오류'}\nURL: ${failure.url}\n오류: ${failure.message}`;
+      }).join('\n\n');
+      zip.file('_다운로드 실패.txt', failureReport);
+    }
     console2.log(`${i+1}/${epUrls.length} sub-pages are fetched. plz wait for zipping.`);
     const BOOK_TITLE = document.querySelector('h2.title')?.innerText.replace(/[/\\?%*:|"<>]/g, '_') || '제목 없음';
-    zipAndDownload(zip, BOOK_TITLE, console2);
+    await zipAndDownload(zip, BOOK_TITLE, console2);
+    if (downloadFailures.length > 0) {
+      console2.add(`경고: ${totalRetryCount}번 재시도했고, 이미지 또는 페이지 ${downloadFailures.length}개를 끝내 받지 못했어. ZIP의 _다운로드 실패.txt를 확인해.`);
+    }
+    else if (totalRetryCount > 0) {
+      console2.add(`알림: 일시적 오류로 ${totalRetryCount}번 재시도했지만 이미지는 모두 받았어.`);
+    }
   }
   else {
-    console2.log('fetching failed? nothing to download. :(');
+    const detail = downloadFailures.length > 0 ? ` ${downloadFailures.length}개 요청이 모두 실패했어.` : '';
+    console2.log(`fetching failed? nothing to download. :(${detail}`);
   }
 }
 
-async function fetchAll(urls, type) {
+async function fetchAll(urls, type, maxConcurrency = 4) {
   const results = [];
-  const promises = urls.map(async (url, i) => {
-    results[i] = await fetchOne(url, type);
-  });
-  await Promise.all(promises);
+  const failures = [];
+  let retryCount = 0;
+  let nextIndex = 0;
 
-  return results;
+  async function worker() {
+    while (nextIndex < urls.length) {
+      const i = nextIndex++;
+      const url = urls[i];
+      try {
+        results[i] = await fetchOne(url, type, {onRetry: () => retryCount++});
+      } catch (err) {
+        results[i] = null;
+        failures.push({index: i + 1, url, status: err.status || 0, message: err.message || String(err)});
+      }
+    }
+  }
+
+  const workerCount = Math.min(maxConcurrency, urls.length);
+  await Promise.all(Array.from({length: workerCount}, worker));
+  failures.sort((a, b) => a.index - b.index);
+
+  return {results, failures, retryCount};
 }

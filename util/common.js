@@ -131,7 +131,7 @@ function initSettingContainer(container, epNumber, main) {
 }
 
 function zipAndDownload(zip, fileName, console2 = console) {
-  zip.generateAsync({type: "blob", compression: "STORE"}, metadata => {
+  return zip.generateAsync({type: "blob", compression: "STORE"}, metadata => {
     let msg = 'zipping: ' + metadata.percent.toFixed(2) + '%';
     if (metadata.currentFile) msg = msg + ' (' + metadata.currentFile + ')';
     console2.show(msg);

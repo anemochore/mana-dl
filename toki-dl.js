@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         toki downloader
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  try to take over the world!
 // @author       anemochore
 // @include      https://*to*/*
@@ -19,7 +19,8 @@
 // @run-at       document-start
 // ==/UserScript==
 
-//v0.1.0: 2027-8-5
+//v0.1.0: first refactored version, 2027-8-5
+//v0.1.4: validate and retry downloads; report failures -> retrying is not really validated yet
 
 /* 사용법:
 뉴토끼와 마나토끼(구분은 url 기준)에서 이미지(만화, 웹툰)를 받는 스크립트로, 딱히 설명할 건 없음
@@ -127,6 +128,8 @@ async function main(e, minDelay = 3000, maxDelay = 3300) {
   const epTitles = buttons.map(el => [...el.childNodes].filter(n => n.nodeType == Node.TEXT_NODE)
   .find(n => n.textContent.trim().length > 0)?.textContent.trim().replace(/[/\\?%*:|"<>]/g, '_'));
   const epUrls = buttons.map(el => el.href);
+  const downloadFailures = [];
+  let totalRetryCount = 0;
 
   //load each ep in sequence and get imgs asynchronously and add them to zip
   let i = -1;
@@ -138,38 +141,52 @@ async function main(e, minDelay = 3000, maxDelay = 3300) {
     const performanceElapsedTime = performance.now() - performanceStartTime;
     //console.debug('result', result);
 
-    const [imgUrls, imgBlobs] = result.reduce(([urls, blobs], {url, blob}) => {
-      urls.push(url);
-      blobs.push(blob);
-      return [urls, blobs];
-    }, [[], []]);
+    const images = result?.images || [];
+    const failures = result?.failures || [];
+    totalRetryCount += result?.retryCount || 0;
+    downloadFailures.push(...failures.map(failure => ({...failure, episode: epTitles[i]})));
+    const imgUrls = images.map(image => image.url);
     console.debug('imgUrls', imgUrls);
 
     let pauseTime = Math.random() * (maxDelay - minDelay) + minDelay - performanceElapsedTime;
     if (i+1 == epUrls.length || pauseTime < 0) pauseTime = 0;
-    console2.spin(`fetched ${imgUrls.filter(el => el).length}/${imgUrls.length} images on ${i+1}/${epUrls.length} sub-pages (${epTitles[i]}). took ${Math.round(performanceElapsedTime)} ms. sleeping ${Math.round(pauseTime)} ms...`);
+    console2.spin(`fetched ${images.length}/${images.length + failures.length} images on ${i+1}/${epUrls.length} sub-pages (${epTitles[i]}). took ${Math.round(performanceElapsedTime)} ms. sleeping ${Math.round(pauseTime)} ms...`);
     await sleep(pauseTime);
 
     //zip에 추가
-    for (let [j, imgUrl] of imgUrls.entries()) {
+    for (const [j, image] of images.entries()) {
+      const imgUrl = image.url;
       let ext = imgUrl.split('.').pop().split('?')[0];
       if (ext.startsWith('js') || ext.startsWith('woff') || ext == 'css') ext = 'jpg';  //is it safe to use jpg for fallback?
       const name = epTitles[i].replace(/[/\\?%*:|"<>]/g, '_') || '';
-      zip.folder(`${i+1} ${name}`).file(`${j+1}.${ext}`, imgBlobs[j]);
+      zip.folder(`${i+1} ${name}`).file(`${image.index || j+1}.${ext}`, image.blob);
     }
   }
 
   //zip and d/l (일부라도 성공했으면 다운로드는 진행)
   if(i >= 0 && Object.keys(zip.files).length > 0) {
+    if (downloadFailures.length > 0) {
+      const failureReport = downloadFailures.map(failure =>
+        `[${failure.episode}] ${failure.index}.jpg\n상태: ${failure.status || '네트워크 오류'}\nURL: ${failure.url}\n오류: ${failure.message}`
+      ).join('\n\n');
+      zip.file('_다운로드 실패.txt', failureReport);
+    }
     console2.log(`${i+1}/${epUrls.length} sub-pages are fetched. plz wait for zipping.`);
     const BOOK_TITLE =
       (document.querySelector('.page-title>h2')?.innerText ||  //뉴토끼
        document.querySelector('.view-content>span>b')?.innerText)  //마나토끼
       ?.trim().replace(/[/\\?%*:|"<>]/g, '_') || '제목 없음';
-    zipAndDownload(zip, BOOK_TITLE, console2);
+    await zipAndDownload(zip, BOOK_TITLE, console2);
+    if (downloadFailures.length > 0) {
+      console2.add(`경고: ${totalRetryCount}번 재시도했고, 이미지 ${downloadFailures.length}개를 끝내 받지 못했어. ZIP의 _다운로드 실패.txt를 확인해.`);
+    }
+    else if (totalRetryCount > 0) {
+      console2.add(`알림: 일시적 오류로 ${totalRetryCount}번 재시도했지만 이미지는 모두 받았어.`);
+    }
   }
   else {
-    console2.log('fetching failed? nothing to download. :(');
+    const detail = downloadFailures.length > 0 ? ` 이미지 ${downloadFailures.length}개가 모두 실패했어.` : '';
+    console2.log(`fetching failed? nothing to download. :(${detail}`);
   }
 }
 
@@ -181,14 +198,17 @@ async function visitAndFetchAll(urls) {
 
   const results = [];
   for (const [i, url] of urls.entries()) {
-    let imgArray = GM_getValue(i);
+    const stored = GM_getValue(i);
+    const imgArray = Array.isArray(stored) ? stored : stored?.images;
+    const failures = Array.isArray(stored) ? [] : stored?.failures || [];
+    const retryCount = Array.isArray(stored) ? 0 : stored?.retryCount || 0;
+    results[i] = {images: [], failures, retryCount};
     if (url && imgArray?.length > 0) {
-      results[i] = [];
       for (const obj of imgArray) {
         //b64를 다시 blob으로 변환
         const base64Response = await fetch(obj.b64);
         const blob = await base64Response.blob();
-        results[i].push({url: obj.url, blob});
+        results[i].images.push({url: obj.url, blob, index: obj.index});
       }
     }
     GM_deleteValue(i);
@@ -229,16 +249,19 @@ async function getImages(selector = 'img') {
   const index = GM_getValue('URLS_TO_DL').indexOf(url);  //it cannot be -1
 
   const imgUrls = [...document.querySelectorAll(selector)].map(img => img.src);
+  const results = [];
+  const failures = [];
+  let retryCount = 0;
   if (imgUrls.length == 0) {
     console.error('No images found with selector:', selector);
+    GM_setValue(index, {images: results, failures: [{index: 0, url, status: 0, message: '이미지를 찾지 못함'}], retryCount});
     return;
   }
-  try {
-    //console.debug('imgUrls', imgUrls);
+  //console.debug('imgUrls', imgUrls);
 
-    const results = [];
-    for (const url of imgUrls) {
-      const blob = await fetchOne(url, 'blob');
+  for (const [i, url] of imgUrls.entries()) {
+    try {
+      const blob = await fetchOne(url, 'blob', {onRetry: () => retryCount++});
 
       // Blob → Base64 변환
       const b64 = await new Promise((resolve, reject) => {
@@ -248,15 +271,21 @@ async function getImages(selector = 'img') {
         reader.readAsDataURL(blob);
       });
 
-      results.push({url, b64});
+      results.push({url, b64, index: i + 1});
+    } catch (err) {
+      console.error('이미지 직접 저장 실패:', err);
+      failures.push({
+        index: i + 1,
+        url,
+        status: err.status || 0,
+        message: err.message || String(err),
+      });
     }
-
-    // 저장
-    //console.debug('results in getImages:', results);
-    GM_setValue(index, results);
-  } catch (err) {
-    console.error('이미지 직접 저장 실패:', err);
   }
+
+  // 실패해도 부모 탭이 계속 기다리지 않도록 결과를 항상 저장한다.
+  //console.debug('results in getImages:', results, failures);
+  GM_setValue(index, {images: results, failures, retryCount});
 }
 
 function domReady() {
