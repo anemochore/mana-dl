@@ -15,6 +15,8 @@
 input[type="checkbox"] {
   margin: 5px 0 -10px 0;
   vertical-align: middle;
+  position: relative;
+  z-index: 999;
 }
 
 .reset { 
